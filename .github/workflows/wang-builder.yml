@@ -1,4 +1,4 @@
-name: OpenWrt Build & Package Pipeline
+name: OpenWrt-wang Build & Package Pipeline
 
 on:
   workflow_dispatch:
