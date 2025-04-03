@@ -1,0 +1,94 @@
+name: OpenWrt Auto-Config Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_device:
+        description: '设备型号 (示例: nx30pro)'
+        required: true
+        default: 'nx30pro'
+
+permissions:  # 新增权限声明
+  contents: write  # 必需的最小化权限
+
+env:
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
+  CONFIG_DIR: config
+  UPLOAD_FIRMWARE: true
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+    # ================ 修复点1：显式声明权限 ================
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false  # 禁用默认凭证
+
+    # ================ 修复点2：移除高危操作 ================
+    - name: Setup environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential ccache cmake git libncurses-dev libssl-dev \
+          python3 rsync unzip zlib1g-dev
+
+    - name: Clone source
+      working-directory: /github/workspace
+      run: |
+        git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
+
+    # ================ 修复点3：规范配置加载 ================
+    - name: Load config
+      run: |
+        CONFIG_FILE="${{ github.workspace }}/${{ env.CONFIG_DIR }}/${{ inputs.target_device }}/.config"
+        if [ -f "$CONFIG_FILE" ]; then
+          cp -v "$CONFIG_FILE" openwrt/.config
+        else
+          echo "::error::Missing config file: $CONFIG_FILE"
+          exit 1
+        fi
+
+    - name: Update feeds
+      working-directory: ./openwrt
+      run: |
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    # ================ 修复点4：标准化iStore集成 ================
+    - name: Add iStore
+      working-directory: ./openwrt
+      run: |
+        echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
+        ./scripts/feeds update istore
+        ./scripts/feeds install -d y -p istore luci-app-store
+
+    - name: Compile firmware
+      working-directory: ./openwrt
+      run: |
+        make defconfig
+        make download -j$(nproc)
+        make -j$(($(nproc)+1)) || make -j1 V=s
+
+    # ================ 修复点5：标签生成策略 ================
+    - name: Generate unique tag
+      id: tag
+      run: |
+        TIMESTAMP=$(date +%Y%m%d%H%M%S)
+        echo "release_tag=${{ inputs.target_device }}_$TIMESTAMP" >> $GITHUB_OUTPUT
+
+    # ================ 修复点6：使用官方推荐上传方式 ================
+    - name: Upload release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: https://uploads.github.com/repos/${{ github.repository }}/releases
+        asset_path: ./openwrt/bin/targets/*/*/*.bin
+        asset_name: openwrt_${{ steps.tag.outputs.release_tag }}.bin
+        asset_content_type: application/octet-stream
