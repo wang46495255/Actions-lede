@@ -1,4 +1,4 @@
-name: OpenWrt Auto-Config Builder
+name: OpenWrt-wang Auto-Config Builder
 
 on:
   workflow_dispatch:
