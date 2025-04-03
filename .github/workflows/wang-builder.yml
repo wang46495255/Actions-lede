@@ -59,7 +59,7 @@ jobs:
     # ==================== 关键修复3：配置文件加载 ====================
     - name: ⚙️ 加载配置
       run: |
-        CONFIG_SRC="/github/workspace/${{ env.CONFIG_DIR }}/${{ env.TARGET_DEVICE }}/.config"
+        CONFIG_SRC="/github/${{ env.CONFIG_DIR }}/${{ env.TARGET_DEVICE }}/.config"
         CONFIG_DST="/github/workspace/openwrt/.config"
         [ -f "$CONFIG_SRC" ] && cp -v "$CONFIG_SRC" "$CONFIG_DST" || (echo "::error::配置文件 $CONFIG_SRC 不存在"; exit 1)
 
