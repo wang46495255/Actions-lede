@@ -1,4 +1,4 @@
-name: OpenWrt Auto-Config Builder
+name: OpenWrt-Lede Auto-Config Builder
 
 on:
   workflow_dispatch:
