@@ -1,0 +1,122 @@
+name: OpenWrt Build & Package Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'OpenWrt分支'
+        required: false
+        default: 'master'
+      target_device:
+        description: '目标设备 (格式: 型号)'
+        required: false
+        default: 'nx30pro'
+  repository_dispatch:
+
+permissions:
+  contents: write  # 新增权限声明
+
+env:
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: ${{ github.event.inputs.target_branch || 'master' }}
+  CONFIG_DIR: config
+  TARGET_DEVICE: ${{ github.event.inputs.target_device || 'nx30pro' }}
+  TZ: Asia/Shanghai
+  UPLOAD_RELEASE: true
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120  # 增加超时时间
+
+    steps:
+    # ==================== 关键修复1：路径标准化 ====================
+    - name: 🔄 检出代码
+      uses: actions/checkout@v4
+      with:
+        path: openwrt-config  # 显式指定检出路径
+
+    - name: 🛠️ 初始化环境
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install -y --no-install-recommends \
+          build-essential ccache cmake git libncurses-dev libssl-dev \
+          python3 rsync unzip zlib1g-dev
+        sudo mkdir -p /github/workspace/openwrt
+        sudo chown -R runner:runner /github/workspace  # 修复权限问题
+
+    # ==================== 关键修复2：克隆流程优化 ====================
+    - name: 📡 克隆源码
+      working-directory: /github/workspace
+      run: |
+        git clone --depth 1 -b "${{ env.REPO_BRANCH }}" "${{ env.REPO_URL }}" openwrt
+        [ -d openwrt ] || (echo "::error::源码克隆失败"; exit 1)
+
+    # ==================== 关键修复3：配置文件加载 ====================
+    - name: ⚙️ 加载配置
+      run: |
+        CONFIG_SRC="/github/workspace/openwrt-config/${{ env.CONFIG_DIR }}/${{ env.TARGET_DEVICE }}/.config"
+        CONFIG_DST="/github/workspace/openwrt/.config"
+        [ -f "$CONFIG_SRC" ] && cp -v "$CONFIG_SRC" "$CONFIG_DST" || (echo "::error::配置文件 $CONFIG_SRC 不存在"; exit 1)
+
+    # ==================== 编译流程优化 ====================
+    - name: 🔄 更新软件源
+      working-directory: /github/workspace/openwrt
+      run: |
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: 📦 添加iStore源
+      working-directory: /github/workspace/openwrt
+      run: |
+        echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
+        ./scripts/feeds update istore
+        ./scripts/feeds install -d y -p istore luci-app-store
+
+    - name: 🏗️ 编译固件
+      working-directory: /github/workspace/openwrt
+      run: |
+        make defconfig
+        make download -j$(nproc)
+        find dl -size -1k -delete  # 清理无效文件
+        make -j$(($(nproc)+1)) || make -j1 V=s
+
+    # ==================== 发布流程优化 ====================
+    - name: 🚀 生成发布包
+      working-directory: /github/workspace/openwrt
+      run: |
+        TIMESTAMP=$(date +%Y%m%d%H%M%S)
+        DEVICE_NAME=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')
+        echo "PACKAGE_NAME=openwrt-${DEVICE_NAME}-${TIMESTAMP}.tar.gz" >> $GITHUB_ENV
+        tar -czvf ../$PACKAGE_NAME bin/targets/*/*
+
+    - name: 📤 发布版本
+      uses: softprops/action-gh-release@v2  # 升级到v2版本
+      with:
+        tag_name: build-${{ env.PACKAGE_NAME }}
+        files: /github/workspace/${{ env.PACKAGE_NAME }}
+        body: |
+          ### 编译信息
+          - 设备: ${{ env.TARGET_DEVICE }}
+          - 时间: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          - 源码分支: ${{ env.REPO_BRANCH }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # ==================== 清理优化 ====================
+    - name: 🧹 清理环境
+      run: |
+        sudo rm -rf /github/workspace/openwrt
+        ccache -C  # 清理编译缓存
+
+    - name: 📢 发送通知
+      if: always()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_COLOR: ${{ job.status == 'success' && '#36a64f' || '#ff0000' }}
+        SLACK_MESSAGE: "构建 ${{ job.status }} - 设备 ${{ env.TARGET_DEVICE }}"
