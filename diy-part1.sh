@@ -14,5 +14,12 @@
 #sed -i 's/^#\(.*helloworld\)/\1/' feeds.conf.default
 
 # Add a feed source
-echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
+#echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
+# 添加 iStore 软件源（带重复检测）
+if ! grep -q "istore" feeds.conf.default; then
+  echo 'src-git istore https://github.com/linkease/istore main' >>feeds.conf.default
+  echo "[INFO] iStore 软件源已添加"
+else
+  echo "[WARN] iStore 软件源已存在，跳过添加"
+f
