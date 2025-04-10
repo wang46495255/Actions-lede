@@ -18,7 +18,7 @@ on:
 
 env:
   REPO_URL: http://39.108.174.7:7022/wang/lede
-  REPO_BRANCH: nx30pro-1
+  REPO_BRANCH: lubancat2
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
