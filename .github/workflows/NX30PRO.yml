@@ -6,9 +6,9 @@ on:
   schedule:             # 添加定时触发
     - cron: '0 0 * * 5' # 每周五 UTC 00:00 (北京时间周五 08:00)
 
-env:
-  REPO_URL: https://github.com/LubanCat/LubanCatWrt
-  REPO_BRANCH: v24.10
+env: 
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   UPLOAD_BIN_DIR: false
