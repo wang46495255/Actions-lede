@@ -7,7 +7,7 @@ on:
     - cron: '0 0 * * 5' # 每周五 UTC 00:00 (北京时间周五 08:00)
 
 env: 
-  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_URL: https://github.com/wang46495255/openwrt-lede
   REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
