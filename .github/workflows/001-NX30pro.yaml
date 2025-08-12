@@ -1,4 +1,4 @@
-name: OpenWrt Builder
+name: wang builder openwrt
 
 on:
   repository_dispatch:  # API触发
