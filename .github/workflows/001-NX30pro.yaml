@@ -1,0 +1,109 @@
+name: OpenWrt Builder
+
+on:
+  repository_dispatch:  # API触发
+  workflow_dispatch:    # 手动触发
+  schedule:             # 定时触发
+    - cron: '0 0 * * 5' # 每周五UTC00:00(北京08:00)
+
+env:
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: .config
+
+jobs:
+  build:
+    runs-on: self-hosted  # 使用自托管运行器
+    container:
+      image: docker://wang4649/wang-nx30pro:latest
+      options: >-
+        --cpus 6
+        --memory 6G
+        --workdir /workdir
+        -v /tmp/ccache:/ccache
+        -e REPO_URL
+        -e REPO_BRANCH
+
+    steps:
+    # 步骤1: 准备环境
+    - name: Prepare environment
+      run: |
+        sudo mkdir -p /workdir /tmp/ccache
+        sudo chown -R builder:builder /workdir /tmp/ccache
+        echo "工作空间已准备"
+
+    # 步骤2: 检出当前仓库
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 步骤3: 克隆OpenWrt源码
+    - name: Clone source
+      working-directory: /workdir
+      run: |
+        echo "正在克隆 $REPO_URL:$REPO_BRANCH ..."
+        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL openwrt
+        echo "源码克隆完成"
+        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+    # 步骤4: 更新feeds
+    - name: Update feeds
+      run: |
+        cd openwrt
+        [ -e $FEEDS_CONF ] && cp $FEEDS_CONF feeds.conf.default
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        echo "Feeds更新完成"
+
+    # 步骤5: 加载自定义配置
+    - name: Apply custom config
+      run: |
+        cd openwrt
+        [ -e files ] && cp -r files ./
+        [ -e $CONFIG_FILE ] && cp $CONFIG_FILE .config
+        echo "自定义配置已应用"
+
+    # 步骤6: 下载软件包
+    - name: Download packages
+      run: |
+        cd openwrt
+        make download -j8
+        find dl -size -1024c -delete
+        echo "软件包下载完成"
+
+    # 步骤7: 编译固件
+    - name: Compile firmware
+      run: |
+        cd openwrt
+        echo "开始编译 ($(nproc) 线程)"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "固件编译完成"
+        echo "DEVICE_NAME=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')" >> $GITHUB_ENV
+        echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+    # 步骤8: 整理固件文件
+    - name: Organize firmware
+      run: |
+        cd openwrt/bin/targets/*/*
+        rm -rf packages
+        FIRMWARE_PATH=$PWD
+        echo "FIRMWARE_PATH=$FIRMWARE_PATH" >> $GITHUB_ENV
+        echo "固件路径: $FIRMWARE_PATH"
+
+    # 步骤9: 上传固件
+    - name: Upload firmware
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: build-${{ env.DEVICE_NAME }}-${{ env.FILE_DATE }}
+        files: ${{ env.FIRMWARE_PATH }}/*.bin
+
+    # 步骤10: 清理旧版本
+    - name: Clean old releases
+      uses: dev-drprasad/delete-older-releases@v0.2.1
+      with:
+        keep_latest: 3
+        delete_tag_pattern: "build-*"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
