@@ -19,6 +19,9 @@ env:
 jobs:
   build:
     runs-on: wang-003
+    container:
+      image: ubuntu:22.04
+      options: --cpus 6 --memory 6G
 
     steps:
     - name: Checkout
