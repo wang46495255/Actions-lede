@@ -19,7 +19,6 @@ env:
 jobs:
   build:
     runs-on: self-hosted
-    image: ubuntu:22.04
 
     steps:
     - name: Checkout
