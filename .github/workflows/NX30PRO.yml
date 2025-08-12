@@ -18,10 +18,7 @@ env:
 
 jobs:
   build:
-    runs-on: self-hosted
-    container:
-      image: ubuntu:22.04
-      options: --cpus 6 --memory 6G
+    runs-on: ubuntu:22.04
 
     steps:
     - name: Checkout
@@ -60,6 +57,7 @@ jobs:
       run: |
         [ -e files ] && mv files openwrt/files
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        make defconfig
 
     - name: Download package
       id: package
