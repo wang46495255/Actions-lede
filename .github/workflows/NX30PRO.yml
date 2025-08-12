@@ -1,4 +1,4 @@
-name: NX30pro Builder
+name: NX30pro 01 Builder
 
 on:
   repository_dispatch:  # 通过 GitHub API 事件触发
