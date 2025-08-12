@@ -29,8 +29,8 @@ jobs:
     # 步骤1: 准备环境
     - name: Prepare environment
       run: |
-        sudo mkdir -p /workdir /tmp/ccache
-        sudo chown -R builder:builder /workdir /tmp/ccache
+        mkdir -p /workdir /tmp/ccache
+        chown -R builder:builder /workdir /tmp/ccache
         echo "工作空间已准备"
 
     # 步骤2: 检出当前仓库
