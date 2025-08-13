@@ -8,7 +8,7 @@ jobs:
       image: wang4649/wang-ubuntu:latest
       options: --user wang
   defaults:
-    run:
+    run: |
       working-directory: /home/wang
   steps:
     - name: Checkout code
