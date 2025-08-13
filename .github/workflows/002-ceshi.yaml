@@ -18,10 +18,10 @@ jobs:
       - name: Create workspace structure
         run: |
           # 创建工作目录
-          mkdir -p workdir/openwrt
+          mkdir -p /home/wang/workdir/openwrt
           
           # 创建到GITHUB_WORKSPACE的软链接
-          ln -s ~/workdir/openwrt $GITHUB_WORKSPACE/openwrt
+          ln -s /home/wang/workdir/openwrt $GITHUB_WORKSPACE/openwrt
           
           # 验证目录结构
           echo "目录结构:"
