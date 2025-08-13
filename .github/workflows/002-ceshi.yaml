@@ -8,22 +8,42 @@ jobs:
       image: wang4649/wang-ubuntu:latest
       options: --user wang
     defaults:
-      run:  # ✅ 必须指定作用范围为 run（表示为所有步骤设置默认运行参数）
-        working-directory: /home/wang  # 现在属于 defaults.run 的合法子属性
+      run:
+        working-directory: /home/wang  # 默认工作目录（仅影响未显式指定 working-directory 的步骤）
     steps:
       - name: Checkout code
         uses: actions/checkout@main
         
       - name: Create workspace structure
         run: |
-          # 创建工作目录
+          # 创建工作目录（保留原逻辑，若后续不需要可删除）
           mkdir -p /home/wang/workdir/
 
-      - name: update
+      - name: Setup environment and install packages  # 新步骤（替换原 update 步骤）
         env:
-          DEBIAN_FRONTEND: noninteractive
+          DEBIAN_FRONTEND: noninteractive  # 非交互模式避免 apt 提示
+          TZ: Asia/Shanghai  # 建议显式设置时区（若 $TZ 未在其他位置定义）
         run: |
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq autoremove --purge
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq clean
+          # 清理系统冗余文件
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          # 清理无用 Docker 镜像
+          sudo docker image prune --all --force
+          # 更新包索引并安装依赖（保留 -E 传递环境变量）
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+          # 清理无用包和缓存
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          # 创建并授权工作目录（/workdir）
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
+
+      - name: Clone source code  # 新增拉取代码步骤
+        working-directory: /workdir  # 显式指定此步骤的工作目录为 /workdir
+        run: |
+          # 查看当前目录磁盘信息（可选调试命令）
+          df -hT $PWD
+          # 拉取代码仓库（需确保 $REPO_URL 和 $REPO_BRANCH 已定义，如通过 secrets 传递）
+          git clone $REPO_URL -b $REPO_BRANCH openwrt
+          # 创建软链接到 GitHub 工作空间（便于后续步骤访问）
+          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
