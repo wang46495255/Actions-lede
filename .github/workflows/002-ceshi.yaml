@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  setup-directory:
-    runs-on: [self-hosted]
+  build:
+    runs-on: self-hosted
     container:
       image: wang4649/wang-ubuntu:latest
       options: --user wang
