@@ -24,10 +24,6 @@ jobs:
           DEBIAN_FRONTEND: noninteractive  # 非交互模式避免 apt 提示
           TZ: Asia/Shanghai  # 建议显式设置时区（若 $TZ 未在其他位置定义）
         run: |
-          # 清理系统冗余文件
-          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          # 清理无用 Docker 镜像
-          sudo docker image prune --all --force
           # 更新包索引并安装依赖（保留 -E 传递环境变量）
           sudo -E apt-get -qq update
           sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
@@ -43,7 +39,3 @@ jobs:
         run: |
           # 查看当前目录磁盘信息（可选调试命令）
           df -hT $PWD
-          # 拉取代码仓库（需确保 $REPO_URL 和 $REPO_BRANCH 已定义，如通过 secrets 传递）
-          git clone $REPO_URL -b $REPO_BRANCH openwrt
-          # 创建软链接到 GitHub 工作空间（便于后续步骤访问）
-          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
