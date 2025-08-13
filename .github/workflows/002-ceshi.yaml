@@ -1,7 +1,6 @@
 name: Setup Workspace
 on:
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: self-hosted
