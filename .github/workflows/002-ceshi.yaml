@@ -32,7 +32,7 @@ jobs:
       
       - name: Use openwrt directory (示例步骤)
         run: |
-          cd openwrt
+          cd /home/wang/workdir
           echo "现在在: $(pwd)"
           echo "目录内容:"
           ls -l
