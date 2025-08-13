@@ -14,10 +14,10 @@ jobs:
         working-directory: /home/wang
 
   steps:
-    - name: 检出仓库
+    - name: checkout code
       uses: actions/checkout@v4
 
-    - name: 创建工作目录
+    - name: create workspace structure
       run: |
         mkdir -p workdir/openwrt
         ln -s /home/wang/workdir/openwrt $GITHUB_WORKSPACE/openwrt
@@ -27,6 +27,6 @@ jobs:
         ls -ld $GITHUB_WORKSPACE/openwrt
         echo "当前工作目录: $(pwd)"
 
-    - name: 容器自动清理
+    - name: cleanup
       run: |
         echo "所有更改将在容器退出后自动清理"
