@@ -1,0 +1,42 @@
+name: Setup Workspace
+on:
+  workflow_dispatch:
+
+jobs:
+  setup-directory:
+    runs-on: [self-hosted]
+    container:
+      image: wang4649/wang-ubuntu:latest
+      options: --user wang
+    defaults:
+      run:
+        working-directory: /home/wang
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create workspace structure
+        run: |
+          # 创建工作目录
+          mkdir -p workdir/openwrt
+          
+          # 创建到GITHUB_WORKSPACE的软链接
+          ln -s ~/workdir/openwrt $GITHUB_WORKSPACE/openwrt
+          
+          # 验证目录结构
+          echo "目录结构:"
+          ls -l workdir
+          echo "软链接状态:"
+          ls -ld $GITHUB_WORKSPACE/openwrt
+          echo "当前工作目录: $(pwd)"
+      
+      - name: Use openwrt directory (示例步骤)
+        run: |
+          cd openwrt
+          echo "现在在: $(pwd)"
+          echo "目录内容:"
+          ls -l
+      
+      - name: Cleanup (容器自动清理)
+        run: |
+          echo "所有更改将在容器退出后自动清理"
