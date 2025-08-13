@@ -13,7 +13,7 @@ jobs:
         working-directory: /home/wang
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
       
       - name: Create workspace structure
         run: |
