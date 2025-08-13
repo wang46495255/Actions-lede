@@ -1,0 +1,32 @@
+name: ce shi gongzhuo
+
+on:
+  workflow_dispatch:
+
+jobs: 
+  setup-directory:
+    runs-on: self-hosted
+    container:
+      image: wang4649/wang-ubuntu:latest
+      options: --uses wang
+    defaults:
+      run:
+        working-directory: /home/wang
+
+  steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+
+    - name: 创建工作目录
+      run: |
+        mkdir -p workdir/openwrt
+        ln -s /home/wang/workdir/openwrt $GITHUB_WORKSPACE/openwrt
+        echo "目录结构:"
+        ls -l workdir
+        echo "软链接状态:"
+        ls -ld $GITHUB_WORKSPACE/openwrt
+        echo "当前工作目录: $(pwd)"
+
+    - name: 容器自动清理
+      run: |
+        echo "所有更改将在容器退出后自动清理"
