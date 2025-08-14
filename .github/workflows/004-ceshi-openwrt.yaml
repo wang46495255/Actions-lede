@@ -123,4 +123,4 @@ jobs:
       - name: 编译固件
         run: |
           cd /home/wang/openwrt
-          make -j6 || make -j1 V=s
+          make -j8 || make -j1 V=s
