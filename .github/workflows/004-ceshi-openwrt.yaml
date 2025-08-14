@@ -100,7 +100,9 @@ jobs:
           sudo git clone $REPO_URL -b $REPO_BRANCH /home/wang/openwrt
       
       - name: 更新FEEDS
-        run: cd /home/wang/openwrt && ./scripts/feeds update -a
+        run: |
+          sudo chmod u+w /home/wang  # 为用户（wang）添加写权限
+          cd /home/wang/openwrt && ./scripts/feeds update -a
       
       - name: 安装FEEDS  # 修正原步骤中的"宫装FEEDS"拼写错误（若为笔误）
         run: cd /home/wang/openwrt && ./scripts/feeds install -a
