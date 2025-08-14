@@ -119,3 +119,8 @@ jobs:
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
+
+      - name: 编译固件
+        run: |
+          cd /home/wang/openwrt
+          make -j6 || make -j1 V=s
