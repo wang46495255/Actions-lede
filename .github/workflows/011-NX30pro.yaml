@@ -22,12 +22,12 @@ jobs:
     runs-on: self-hosted
     container:
       image: wang4649/wang-ubuntu:latest
-      options: --user ${{ env.IMAGE_USER }}
+      options: --user $IMAGE_USER
     env:
-      HOME: /home/${{ env.IMAGE_USER }}
+      HOME: /home/$IMAGE_USER
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
         with:
           repository: ${{ env.REPO_URL }}
           ref: ${{ env.REPO_BRANCH }}
