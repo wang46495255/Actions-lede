@@ -25,12 +25,6 @@ jobs:
     container:
       image: wang4649/wang-ubuntu:latest                # 自定义镜像（需替换为实际镜像名称）
       options: --user ${ { env.IMAGE_USER } }           # 强制容器以 wang 用户运行（与宿主机用户名一致）
-      # 可选：挂载宿主机目录（若需要共享文件，如 /workdir）
-      # volume-mounts: 
-      #   - /path/on/host:/path/in/container
-    env:
-      # 新增：容器内用户家目录（与宿主机一致）
-      HOME: /home/${ { env.IMAGE_USER } }
     defaults:
       run:
         working-directory: ${ { env.HOST_WORKDIR } }    # 默认工作目录为宿主机 wang 用户的家目录
