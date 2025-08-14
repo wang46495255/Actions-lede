@@ -16,7 +16,7 @@ jobs:
     runs-on: self-hosted
     container:
       image: wang4649/wang-ubuntu:latest
-      options: --user wang -v /DATA/output:/home/wang
+      options: --user wang
     env:
       HOME: /home/wang
     steps:
@@ -97,11 +97,10 @@ jobs:
       
       - name: 下载源码
         run: |
-          sudo git clone $REPO_URL -b $REPO_BRANCH /home/wang/openwrt
+          git clone $REPO_URL -b $REPO_BRANCH /home/wang/openwrt
       
       - name: 更新FEEDS
         run: |
-          sudo chmod u+w /home/wang  # 为用户（wang）添加写权限
           cd /home/wang/openwrt && ./scripts/feeds update -a
       
       - name: 安装FEEDS  # 修正原步骤中的"宫装FEEDS"拼写错误（若为笔误）
