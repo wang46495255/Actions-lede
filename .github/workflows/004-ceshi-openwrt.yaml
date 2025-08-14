@@ -110,6 +110,7 @@ jobs:
         run: |
           [ -e files ] && mv files /home/wang/openwrt/files
           [ -e $CONFIG_FILE ] && mv $CONFIG_FILE /home/wang/openwrt/.config
+          cd /home/wang/openwrt
           make defconfig
       
       - name: 预下载DL
