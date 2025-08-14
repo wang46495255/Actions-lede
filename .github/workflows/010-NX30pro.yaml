@@ -1,0 +1,181 @@
+name: NX30pro 06 Builder
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 5'
+
+env:
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: .config
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
+  IMAGE_USER: wang
+  BUILD_DIR: /home/wang/openwrt
+
+jobs:
+  build:
+    runs-on: self-hosted
+    container:
+      image: wang4649/wang-ubuntu:latest
+      options: --user ${{ env.IMAGE_USER }}
+    env:
+      HOME: /home/${{ env.IMAGE_USER }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@main
+        with:
+          repository: ${{ env.REPO_URL }}
+          ref: ${{ env.REPO_BRANCH }}
+          path: ${{ env.BUILD_DIR }}
+
+      - name: Install Full Dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+            ack \
+            antlr3 \
+            asciidoc \
+            autoconf \
+            automake \
+            autopoint \
+            binutils \
+            bison \
+            build-essential \
+            bzip2 \
+            ccache \
+            clang \
+            cmake \
+            cpio \
+            curl \
+            device-tree-compiler \
+            flex \
+            gawk \
+            gcc-multilib \
+            g++-multilib \
+            gettext \
+            genisoimage \
+            git \
+            gperf \
+            haveged \
+            help2man \
+            intltool \
+            libc6-dev-i386 \
+            libelf-dev \
+            libfuse-dev \
+            libglib2.0-dev \
+            libgmp3-dev \
+            libltdl-dev \
+            libmpc-dev \
+            libmpfr-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libpython3-dev \
+            libreadline-dev \
+            libssl-dev \
+            libtool \
+            llvm \
+            lrzsz \
+            msmtp \
+            ninja-build \
+            p7zip \
+            p7zip-full \
+            patch \
+            pkgconf \
+            python3 \
+            python3-pyelftools \
+            python3-setuptools \
+            qemu-utils \
+            rsync \
+            scons \
+            squashfs-tools \
+            subversion \
+            swig \
+            texinfo \
+            uglifyjs \
+            upx-ucl \
+            unzip \
+            vim \
+            wget \
+            xmlto \
+            xxd \
+            zlib1g-dev \
+            && rm -rf /var/lib/apt/lists/*
+
+      - name: Setup Environment
+        run: |
+          sudo timedatectl set-timezone $TZ
+          sudo chown -R $IMAGE_USER:$IMAGE_USER $BUILD_DIR
+
+      - name: Configure Feeds
+        run: |
+          cd $BUILD_DIR
+          [ -f $FEEDS_CONF ] && mv $FEEDS_CONF feeds.conf.default
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Apply Custom Configuration
+        run: |
+          cd $BUILD_DIR
+          [ -f $CONFIG_FILE ] && cp $CONFIG_FILE .config || true
+          make defconfig
+
+      - name: Download Dependencies
+        run: |
+          cd $BUILD_DIR
+          make download -j$(nproc)
+
+      - name: Compile Firmware (6 Threads)
+        id: compile_6threads
+        run: |
+          cd $BUILD_DIR
+          echo "🔧 Starting 6-thread compilation..."
+          make -j6 V=s 2>&1 | tee build_6threads.log || (
+            echo "❌ 6 threads failed, retrying with 1 thread..."
+            echo "-----------------------------" >> build.log
+            echo "6-thread log:" >> build.log
+            cat build_6threads.log >> build.log
+            echo "-----------------------------" >> build.log
+            make -j1 V=s 2>&1 | tee -a build.log
+          )
+
+      - name: Check Compilation Status
+        run: |
+          if [ $? -ne 0 ]; then
+            echo "🚨 Compilation FAILED! See full log:"
+            tail -n 500 build.log
+            exit 1
+          fi
+
+      - name: Package Artifacts
+        if: success()
+        run: |
+          cd $BUILD_DIR/bin
+          FIRMWARE_DATE=$(date +%Y%m%d%H%M)
+          DEVICE_NAME=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')
+          tar -czvf openwrt_${DEVICE_NAME}_${FIRMWARE_DATE}.tar.gz ./*
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: openwrt-firmware
+          path: $BUILD_DIR/bin/*.tar.gz
+
+      - name: Upload Full Build Log
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-log-full
+          path: $BUILD_DIR/build.log
+
+      - name: Create Release (Scheduled)
+        if: github.event_name == 'schedule'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: weekly-build-$(date +%Y%m%d)
+          name: Weekly Build ${{ github.run_id }}
+          body: Automated build on ${{ github.workflow }}
+          files: $BUILD_DIR/bin/*.tar.gz
