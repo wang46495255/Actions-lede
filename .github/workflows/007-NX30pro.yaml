@@ -40,13 +40,6 @@ jobs:
 
       - name: Initialization environment               # 初始化构建环境（以 wang 用户运行，无需额外 sudo）
         run: |
-          # 清理冗余文件（避免使用 sudo，若镜像中 wang 用户无权限则添加 sudo）
-          rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          
-          # 清理 Docker 镜像（若容器有 Docker 权限，否则需宿主机执行）
-          # 若容器内无 Docker 权限，建议将此步骤移至宿主机脚本或使用特权容器
-          docker image prune --all --force || true       # 忽略可能的权限错误（根据实际情况调整）
-          
           # 更新包索引并安装编译依赖（使用 wang 用户执行，若提示权限不足则添加 sudo）
           apt-get update && \
           apt-get install -y --no-install-recommends \
