@@ -22,9 +22,9 @@ jobs:
     runs-on: self-hosted
     container:
       image: wang4649/wang-ubuntu:latest
-      options: --user $IMAGE_USER:$IMAGE_USER
+      options: --user wang
     env:
-      HOME: /home/$IMAGE_USER
+      HOME: /home/wang
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@main
