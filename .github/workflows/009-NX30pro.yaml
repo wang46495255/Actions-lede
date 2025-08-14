@@ -1,0 +1,121 @@
+name: NX30pro 09 Builder
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 5'
+
+env:
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: .config
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
+  IMAGE_USER: wang
+  HOST_WORKDIR: /home/wang
+
+jobs:
+  build:
+    runs-on: self-hosted
+    container:
+      image: wang4649/wang-ubuntu:latest
+      options: --user ${{ env.IMAGE_USER }}
+    env:
+      HOME: /home/${{ env.IMAGE_USER }}
+    defaults:
+      run:
+        working-directory: ${{ env.HOST_WORKDIR }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Initialize Environment
+        run: |
+          sudo -E <<EOF
+          set -e
+          rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          apt-get update && apt-get upgrade -y
+          apt-get install -y --no-install-recommends \\
+            build-essential \\
+            git \\
+            python3 \\
+            python3-pip \\
+            ninja-build \\
+            && rm -rf /var/lib/apt/lists/*
+          EOF
+
+      - name: Setup Environment
+        run: |
+          sudo timedatectl set-timezone $TZ
+          mkdir -p $HOST_WORKDIR
+          sudo chown -R $IMAGE_USER:$IMAGE_USER $HOST_WORKDIR
+
+      - name: Clone Source Code
+        run: |
+          git clone $REPO_URL -b $REPO_BRANCH openwrt
+          ln -sf $HOST_WORKDIR/openwrt $GITHUB_WORKSPACE/openwrt
+
+      - name: Update Feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+
+      - name: Install Feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds install -a
+
+      - name: Configure Build
+        run: |
+          cd openwrt
+          cp $CONFIG_FILE .config || true
+          make defconfig
+
+      - name: Download Packages
+        run: |
+          cd openwrt
+          make download -j$(nproc)
+
+      - name: Compile Firmware
+        run: |
+          cd openwrt
+          echo "Compiling with 6 threads..."
+          make -j6 || (echo "Retry with single thread..." && make -j1 V=s)
+
+      - name: Package Artifacts
+        if: success()
+        run: |
+          cd openwrt/bin
+          FIRMWARE_DATE=$(date +%Y%m%d%H%M)
+          DEVICE_NAME=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')
+          OUTPUT_DIR="OpenWrt_v${DEVICE_NAME}_$FIRMWARE_DATE"
+          mkdir -p $OUTPUT_DIR
+          mv * $OUTPUT_DIR/
+          tar -czvf $OUTPUT_DIR.tar.gz $OUTPUT_DIR
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: lede-firmware-$DEVICE_NAME
+          path: openwrt/bin/*.tar.gz
+
+      - name: Create Release
+        if: github.event_name == 'schedule' && github.repository == 'coolsnowwolf/lede'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: weekly-build-$(date +%Y%m%d)
+          name: Weekly LEDE Build ${{ github.run_id }}
+          body: Automated build on ${{ github.workflow }}
+          draft: false
+          prerelease: false
+          files: openwrt/bin/*.tar.gz
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "Cleaning up workspace..."
+          rm -rf $HOST_WORKDIR/openwrt
