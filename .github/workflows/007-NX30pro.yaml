@@ -1,0 +1,174 @@
+name: NX30pro 06 Builder
+
+on:
+  repository_dispatch:  # 通过 GitHub API 事件触发
+  workflow_dispatch:    # 通过 GitHub UI 手动触发
+  schedule:             # 定时触发（每周五 UTC 00:00，北京时间周五 08:00）
+    - cron: '0 0 * * 5'
+
+env: 
+  REPO_URL: https://github.com/coolsnowwolf/lede       # 源码仓库 URL
+  REPO_BRANCH: master                                  # 源码分支
+  FEEDS_CONF: feeds.conf.default                       # Feeds 配置文件
+  CONFIG_FILE: .config                                 # 自定义配置文件
+  UPLOAD_BIN_DIR: false                                # 是否上传二进制目录（默认关闭）
+  UPLOAD_FIRMWARE: true                                # 是否上传固件（默认开启）
+  UPLOAD_RELEASE: true                                 # 是否发布到 Release（默认开启）
+  TZ: Asia/Shanghai                                    # 设置时区为上海
+  # 新增：自定义镜像和用户相关环境变量（可选，根据实际需求）
+  IMAGE_USER: wang                                     # 镜像用户名（与宿主机一致）
+  HOST_WORKDIR: /home/wang                             # 宿主机工作目录（与镜像用户家目录一致）
+
+jobs:
+  build:
+    runs-on: self-hosted                                # 使用自定义运行器（需提前在 GitHub 仓库设置中配置）
+    container:
+      image: wang4649/wang-ubuntu:latest                # 自定义镜像（需替换为实际镜像名称）
+      options: --user ${ { env.IMAGE_USER } }           # 强制容器以 wang 用户运行（与宿主机用户名一致）
+      # 可选：挂载宿主机目录（若需要共享文件，如 /workdir）
+      # volume-mounts: 
+      #   - /path/on/host:/path/in/container
+    env:
+      # 新增：容器内用户家目录（与宿主机一致）
+      HOME: /home/${ { env.IMAGE_USER } }
+    defaults:
+      run:
+        working-directory: ${ { env.HOST_WORKDIR } }    # 默认工作目录为宿主机 wang 用户的家目录
+    steps:
+      - name: Checkout                                 # 检出当前仓库代码（自动在 $GITHUB_WORKSPACE 执行）
+        uses: actions/checkout@main
+
+      - name: Initialization environment               # 初始化构建环境（以 wang 用户运行，无需额外 sudo）
+        run: |
+          # 清理冗余文件（避免使用 sudo，若镜像中 wang 用户无权限则添加 sudo）
+          rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          
+          # 清理 Docker 镜像（若容器有 Docker 权限，否则需宿主机执行）
+          # 若容器内无 Docker 权限，建议将此步骤移至宿主机脚本或使用特权容器
+          docker image prune --all --force || true       # 忽略可能的权限错误（根据实际情况调整）
+          
+          # 更新包索引并安装编译依赖（使用 wang 用户执行，若提示权限不足则添加 sudo）
+          apt-get update && \
+          apt-get install -y --no-install-recommends \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+          
+          # 清理无用包和缓存
+          apt-get autoremove -y --purge && \
+          apt-get clean && \
+          rm -rf /var/lib/apt/lists/*
+          
+          # 设置时区（若容器内无 timedatectl 权限，需宿主机执行或使用 sudo）
+          timedatectl set-timezone "$TZ" || sudo timedatectl set-timezone "$TZ"
+          
+          # 创建并授权工作目录（若宿主机目录已存在且权限正确，可跳过）
+          mkdir -p ${ { env.HOST_WORKDIR } } && \
+          chown ${ { env.IMAGE_USER } }:${ { env.IMAGE_USER } } ${ { env.HOST_WORKDIR } }
+
+      - name: Clone source code                          # 克隆 OpenWrt 源码（在 $GITHUB_WORKSPACE 执行）
+        working-directory: ${ { env.HOST_WORKDIR } }     # 显式指定工作目录为宿主机 wang 用户家目录
+        run: |
+          df -hT $PWD                                     # 查看当前目录磁盘信息（可选调试）
+          git clone $REPO_URL -b $REPO_BRANCH openwrt     # 克隆源码到 openwrt 目录
+          ln -sf ${ { env.HOST_WORKDIR } }'/openwrt' $GITHUB_WORKSPACE'/openwrt'  # 创建软链接到 GitHub 工作空间
+
+      - name: Update feeds                               # 更新 Feeds 源
+        run: |
+          [ -e $FEEDS_CONF ] && mv $FEEDS_CONF ${ { env.HOST_WORKDIR } }'/openwrt/feeds.conf.default'
+          cd ${ { env.HOST_WORKDIR } }'/openwrt' && ./scripts/feeds update -a
+
+      - name: Install feeds                              # 安装 Feeds 依赖
+        run: cd ${ { env.HOST_WORKDIR } }'/openwrt' && ./scripts/feeds install -a
+
+      - name: Load custom configuration                  # 加载自定义配置
+        run: |
+          [ -e files ] && mv files ${ { env.HOST_WORKDIR } }'/openwrt/files'
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE ${ { env.HOST_WORKDIR } }'/openwrt/.config'
+
+      - name: Download package                           # 下载软件包
+        id: package                                      # 标记步骤 ID 供后续引用
+        run: |
+          cd ${ { env.HOST_WORKDIR } }'/openwrt'
+          make defconfig                                   # 生成默认配置
+          make download -j$(nproc)                         # 下载依赖包（保持原nproc多线程）
+          # 清理小于 1KB 的无效文件
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: Compile the firmware                       # 编译固件（修改此处为6线程）
+        id: compile                                      # 标记步骤 ID 供后续引用
+        run: |
+          cd ${ { env.HOST_WORKDIR } }'/openwrt'
+          echo -e "6 thread compile"                      # 输出编译线程数（修改提示文字）
+          make -j6 || make -j1 || make -j1 V=s            # 修改为固定6线程编译（关键修改点）
+          echo "status=success" >> $GITHUB_OUTPUT          # 标记编译成功
+          
+          # 提取设备名称（用于产物命名）
+          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+          [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV  # 写入环境变量
+          
+          # 生成文件日期（用于产物命名）
+          echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+      - name: Check space usage                          # 检查磁盘空间使用情况（调试用）
+        if: (!cancelled())                               # 仅当工作流未取消时执行
+        run: df -hT ${ { env.HOST_WORKDIR } }            # 查看工作目录所在分区空间
+
+      - name: Upload bin directory                       # 上传二进制目录（可选）
+        uses: actions/upload-artifact@main
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+        with:
+          name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${ { env.HOST_WORKDIR } }'/openwrt/bin'
+
+      - name: Organize files                             # 整理固件文件
+        id: organize                                     # 标记步骤 ID 供后续引用
+        if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()  # 仅当上传固件开启且未取消时执行
+        run: |
+          cd ${ { env.HOST_WORKDIR } }'/openwrt/bin/targets/*/*'  # 进入固件目录
+          rm -rf packages                                # 删除冗余的 packages 目录
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV            # 记录固件路径到环境变量
+          echo "status=success" >> $GITHUB_OUTPUT        # 标记整理成功
+
+      - name: Upload firmware directory                  # 上传固件目录（必选）
+        uses: actions/upload-artifact@main
+        if: steps.organize.outputs.status == 'success' && !cancelled()
+        with:
+          name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}  # 使用整理后的固件路径
+
+      - name: Generate release tag                       # 生成 Release 标签
+        id: tag                                          # 标记步骤 ID 供后续引用
+        if: env.UPLOAD_RELEASE == 'true' && !cancelled()   # 仅当发布开启且未取消时执行
+        run: |
+          # 根据触发时间生成标签（周五使用周格式，其他时间使用日期时间格式）
+          if [ "$(date +%u)" -eq 5 ]; then
+            echo "release_tag=Weekly_$(date +"%Y%m%d")" >> $GITHUB_OUTPUT
+          else
+            echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
+          fi
+          touch release.txt                               # 创建空文件标记成功
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      - name: Upload firmware to release                 # 上传固件到 Release
+        uses: softprops/action-gh-release@master
+        if: steps.tag.outputs.status == 'success' && !cancelled()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}       # 使用仓库令牌认证
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}   # 使用生成的标签
+          files: ${{ env.FIRMWARE }}/*                      # 上传固件目录下所有文件
+
+      - name: Delete workflow runs                       # 清理旧的工作流运行记录
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          retain_days: 0                                  # 不保留天数（按最小运行数保留）
+          keep_minimum_runs: 2                            # 至少保留 2 次运行记录
+
+      - name: Remove old Releases                        # 清理旧的 Release 版本
+        uses: dev-drprasad/delete-older-releases@master
+        if: env.UPLOAD_RELEASE == 'true' && !cancelled()   # 仅当发布开启且未取消时执行
+        with:
+          keep_latest: 3                                  # 保留最新的 3 个 Release
+          delete_tags: true                                 # 同时删除关联的标签
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}         # 使用仓库令牌认证
