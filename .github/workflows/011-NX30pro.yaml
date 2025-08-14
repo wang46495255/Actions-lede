@@ -28,10 +28,6 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@main
-        with:
-          repository: ${{ env.REPO_URL }}
-          ref: ${{ env.REPO_BRANCH }}
-          path: ${{ env.BUILD_DIR }}
 
       - name: Install Full Dependencies
         run: |
