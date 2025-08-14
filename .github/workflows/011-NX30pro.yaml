@@ -1,4 +1,4 @@
-name: NX30pro 06 Builder
+name: NX30pro 11 Builder
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ jobs:
       HOME: /home/$IMAGE_USER
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.REPO_URL }}
           ref: ${{ env.REPO_BRANCH }}
