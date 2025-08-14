@@ -27,7 +27,7 @@ jobs:
       HOME: /home/$IMAGE_USER
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
         with:
           repository: ${{ env.REPO_URL }}
           ref: ${{ env.REPO_BRANCH }}
@@ -159,21 +159,21 @@ jobs:
           tar -czvf openwrt_${DEVICE_NAME}_${FIRMWARE_DATE}.tar.gz ./*
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@main
         with:
           name: openwrt-firmware
           path: $BUILD_DIR/bin/*.tar.gz
 
       - name: Upload Full Build Log
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@main
         with:
           name: build-log-full
           path: $BUILD_DIR/build.log
 
       - name: Create Release (Scheduled)
         if: github.event_name == 'schedule'
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@main
         with:
           tag: weekly-build-$(date +%Y%m%d)
           name: Weekly Build ${{ github.run_id }}
