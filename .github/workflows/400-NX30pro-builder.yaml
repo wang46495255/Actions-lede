@@ -45,7 +45,7 @@ jobs:
           clang \
           cmake \
           cpio \
-          curl \  # 已包含 curl，无需额外安装
+          curl \
           device-tree-compiler \
           flex \
           gawk \
