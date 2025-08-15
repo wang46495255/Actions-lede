@@ -1,0 +1,180 @@
+name: nx30pro 400 builder
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 5'
+
+env:
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
+  CONFIG_FILE: .config
+  TZ: Asia/Shanghai
+  WEBDAV_URL: http://39.108.174.7:8081/downloads  # WebDAV 目标路径
+  WEBDAV_USER: admin                             # WebDAV 用户名
+  WEBDAV_PASS: admin1234                         # WebDAV 密码
+
+jobs:
+  build:
+    runs-on: self-hosted
+    container:
+      image: wang4649/wang-ubuntu:latest
+      options: --user wang
+    env:
+      HOME: /home/wang
+    steps:
+      # ------------------------------ 原有步骤保持不变 ------------------------------
+      - name: 检出仓库
+        uses: actions/checkout@main
+      
+      - name: 安装依赖
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+          ack \
+          antlr3 \
+          asciidoc \
+          autoconf \
+          automake \
+          autopoint \
+          binutils \
+          bison \
+          build-essential \
+          bzip2 \
+          ccache \
+          clang \
+          cmake \
+          cpio \
+          curl \  # 已包含 curl，无需额外安装
+          device-tree-compiler \
+          flex \
+          gawk \
+          gcc-multilib \
+          g++-multilib \
+          gettext \
+          genisoimage \
+          git \
+          gperf \
+          haveged \
+          help2man \
+          intltool \
+          libc6-dev-i386 \
+          libelf-dev \
+          libfuse-dev \
+          libglib2.0-dev \
+          libgmp3-dev \
+          libltdl-dev \
+          libmpc-dev \
+          libmpfr-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libpython3-dev \
+          libreadline-dev \
+          libssl-dev \
+          libtool \
+          llvm \
+          lrzsz \
+          msmtp \
+          ninja-build \
+          p7zip \
+          p7zip-full \
+          patch \
+          pkgconf \
+          python3 \
+          python3-pyelftools \
+          python3-setuptools \
+          qemu-utils \
+          rsync \
+          scons \
+          squashfs-tools \
+          subversion \
+          swig \
+          texinfo \
+          uglifyjs \
+          upx-ucl \
+          unzip \
+          vim \
+          wget \
+          xmlto \
+          xxd \
+          zlib1g-dev
+      
+      - name: 下载源码
+        run: |
+          git clone $REPO_URL -b $REPO_BRANCH /home/wang/openwrt
+      
+      - name: 更新FEEDS
+        run: |
+          cd /home/wang/openwrt && ./scripts/feeds update -a
+      
+      - name: 安装FEEDS
+        run: cd /home/wang/openwrt && ./scripts/feeds install -a
+      
+      - name: 下载配置
+        run: |
+          [ -e files ] && mv files /home/wang/openwrt/files
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE /home/wang/openwrt/.config
+          cd /home/wang/openwrt
+          make defconfig
+      
+      - name: 预下载DL
+        run: |
+          cd /home/wang/openwrt
+          make download -j8
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: 编译固件
+        run: |
+          cd /home/wang/openwrt
+          make -j8 || make -j1 V=s
+      
+      # ------------------------------ 新增步骤：打包包含.bin的子目录 ------------------------------
+      - name: 查找并打包包含.bin文件的子目录
+        run: |
+          BIN_DIR="/home/wang/openwrt/bin"
+          target_dirs=$(find "$BIN_DIR" -type f -name "*.bin" -exec dirname {} \; | sort -u)
+          
+          if [ -z "$target_dirs" ]; then
+            echo "⚠️ 未找到包含 .bin 文件的子目录，跳过打包。"
+            exit 0
+          fi
+          
+          echo "✅ 找到以下包含 .bin 文件的子目录："
+          echo "$target_dirs"
+          
+          output_file="/home/wang/openwrt_bins_with_bin_$(date +%Y%m%d%H%M%S).tar.gz"
+          
+          tar -czvf "$output_file" -C "$BIN_DIR" $target_dirs
+          
+          if [ $? -eq 0 ]; then
+            echo "📦 打包成功！文件路径：$output_file"
+            echo "OUTPUT_FILE=$output_file" >> $GITHUB_ENV  # 保存到环境变量供后续步骤使用
+          else
+            echo "❌ 打包失败！"
+            exit 1
+          fi
+      
+      # ------------------------------ 新增步骤：上传打包文件到 WebDAV ------------------------------
+      - name: 上传打包文件到 WebDAV
+        run: |
+          # 检查打包文件是否存在
+          if [ ! -f "$OUTPUT_FILE" ]; then
+            echo "❌ 打包文件不存在：$OUTPUT_FILE，跳过上传。"
+            exit 0
+          fi
+          
+          # 构造完整的 WebDAV 上传 URL（确保以 / 结尾，避免文件名被覆盖）
+          upload_url="${WEBDAV_URL}/"
+          
+          # 使用 curl 上传文件（-u 认证，-T 上传本地文件）
+          echo "🔄 开始上传文件到 WebDAV：$upload_url"
+          curl -f -u "$WEBDAV_USER:$WEBDAV_PASS" -T "$OUTPUT_FILE" "$upload_url"
+          
+          # 检查 curl 退出状态（非 0 表示失败）
+          if [ $? -ne 0 ]; then
+            echo "❌ 文件上传失败！"
+            exit 1
+          fi
+          
+          echo "✅ 文件上传成功！路径：$upload_url$OUTPUT_FILE"
