@@ -17,9 +17,10 @@ env:
 jobs:
   build:
     runs-on: self-hosted
-    container:
-      image: wang4649/ubuntu0530:latest
-      options: --user wang
+    steps:
+      - name: 运行用户和镜像
+        run: |
+          docker run --user wang wang4649/ubuntu0830
     env:
       HOME: /home/wang
     steps:
