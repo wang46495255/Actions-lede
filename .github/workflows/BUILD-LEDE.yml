@@ -54,16 +54,10 @@ jobs:
       run: cd openwrt && ./scripts/feeds install -a
 
     - name: 加载自定义配置
-      env:
-        CONFIG_FILE_PACH="$GITHUB_WORKSPACE/${{ env.CONFIG_FILE }}"
       run: |
-        if [ -f "$CONFIG_FILE_PACH" ]; then
-          cp "$CONFIG_FILE_PACH" openwrt/.config
-          echo " 配置文件 ${{ env.CONFIG_FILE }} 已加载为openwrt/.config "
-        else
-          echo " 错误: 配置文件 ${{ env.CONFIG_FILE }} 不存在 "
-          exit 1
-        fi
+        cp "$GITHUB_WORKSPACE/${{ env.CONFIG_FILE }}" openwrt/.config
+        echo "✅ 已加载配置文件为 openwrt/.config"
+
 
     - name: 下载DL
       id: package
