@@ -18,10 +18,10 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout
+    - name: 准备完成
       uses: actions/checkout@main
 
     - name: Initialization environment
@@ -38,27 +38,34 @@ jobs:
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
 
-    - name: Clone source code
+    - name: 克隆源码
       working-directory: /workdir
       run: |
         df -hT $PWD
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-    - name: Update feeds
+    - name: 更新FEEDS
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
         cd openwrt && ./scripts/feeds update -a
 
-    - name: Install feeds
+    - name: 安装FEEDS
       run: cd openwrt && ./scripts/feeds install -a
 
-    - name: Load custom configuration
+    - name: 加载自定义配置
+      env:
+        CONFIG_FILE_PACH="$GITHUB_WORKSPACE/${{ env.CONFIG_FILE }}"
       run: |
-        [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        if [ -f "$CONFIG_FILE_PACH" ]; then
+          cp "$CONFIG_FILE_PACH" openwrt/.config
+          echo " 配置文件 ${{ env.CONFIG_FILE }} 已加载为openwrt/.config "
+        else
+          echo " 错误: 配置文件 ${{ env.CONFIG_FILE }} 不存在 "
+          exit 1
+        fi
 
-    - name: Download package
+    - name: 下载DL
       id: package
       run: |
         cd openwrt
@@ -67,7 +74,7 @@ jobs:
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile the firmware
+    - name: 编译固件
       id: compile
       run: |
         cd openwrt
