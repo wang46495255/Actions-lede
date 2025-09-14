@@ -1,4 +1,4 @@
-name: NX30pro 01 Builder
+name: build lede os
 
 on:
   repository_dispatch:  # 通过 GitHub API 事件触发
@@ -10,7 +10,7 @@ env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .config
+  CONFIG_FILE: nx30pro.config
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
