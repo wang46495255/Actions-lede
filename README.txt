@@ -1,4 +1,4 @@
-Simplified Chinese
+**Simplified Chinese**
 使用Actions自动编译OpenWrt
 
 [![LICENSE](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square&label=LICENSE)](https://github.com/P3TERX/Actions-OpenWrt/blob/master/LICENSE)
