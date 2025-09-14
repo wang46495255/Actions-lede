@@ -1,6 +1,6 @@
 使用Actions自动编译OpenWrt
 
-使用方法
+介绍
  
 - 点击 Use this template 按钮创建一个新仓库。
 - 通过 Lean's OpenWrt 源代码生成  .config  文件。（可通过工作流文件中的环境变量进行修改。）
