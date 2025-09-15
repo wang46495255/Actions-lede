@@ -30,8 +30,4 @@
 - [peter-evans/repository-dispatch](https://github.com/peter-evans/repository-dispatch)
 
 
-[源项目](https://github.com/P3TERX/Actions-OpenWrt/blob/main/LICENSE) © [**P3TERX**](https://p3terx.com)
-
-许可证
-
-麻省理工学院 © P3TERX
+[麻省理工学院](https://github.com/P3TERX/Actions-OpenWrt/blob/main/LICENSE) © [**P3TERX**](https://p3terx.com)
