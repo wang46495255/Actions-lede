@@ -9,7 +9,7 @@
 ![GitHub Forks](https://img.shields.io/github/forks/P3TERX/Actions-OpenWrt.svg?style=flat-square&label=Forks&logo=github)
 
 - 点击 [Use this template](https://github.com/wang46495255/Actions-lede/generate)按钮创建一个新仓库。
-- 通过 Lean's OpenWrt 源代码生成  .config  文件。（可通过工作流文件中的环境变量进行修改。）
+- 通过 Lean's OpenWrt 源代码生成  .config  文件。
 - 将  机型.config  文件推送到 GitHub 仓库。
 - 在 Actions 页面选择 “Build OpenWrt” 选项。
 - 点击 “Run workflow” 按钮。
