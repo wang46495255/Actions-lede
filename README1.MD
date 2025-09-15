@@ -18,7 +18,20 @@
 详细用法:
 将预先配置好的.config文件推送到仓库，如果只使用.config可以在工作流中的环境变量写成CONFIG_FILE: .config，如果需要多机型可以将配置文件重命名为:机型.config，同样在工作流中改为相同的名称，需要构建更改机型时只要将工作流中配置文件改为需要编译的机型配置同文件名即可。
 
+鸣谢:
+- [Microsoft Azure](https://azure.microsoft.com)
+- [GitHub Actions](https://github.com/features/actions)
+- [OpenWrt](https://github.com/openwrt/openwrt)
+- [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede)
+- [Mikubill/transfer](https://github.com/Mikubill/transfer)
+- [softprops/action-gh-release](https://github.com/softprops/action-gh-release)
+- [Mattraks/delete-workflow-runs](https://github.com/Mattraks/delete-workflow-runs)
+- [dev-drprasad/delete-older-releases](https://github.com/dev-drprasad/delete-older-releases)
+- [peter-evans/repository-dispatch](https://github.com/peter-evans/repository-dispatch)
 
+## License
+
+[MIT](https://github.com/P3TERX/Actions-OpenWrt/blob/main/LICENSE) © [**P3TERX**](https://p3terx.com)
 
 许可证
 
